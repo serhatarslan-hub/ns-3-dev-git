@@ -256,7 +256,7 @@ int main (int argc, char *argv[])
   SeedManager::SetRun (run);
 
   // User may find it convenient to enable logging
-  //LogComponentEnable("TcpVariantsComparison", LOG_LEVEL_ALL);
+  LogComponentEnable("TcpVariantsComparison", LOG_LEVEL_ALL);
   //LogComponentEnable("BulkSendApplication", LOG_LEVEL_INFO);
   //LogComponentEnable("PfifoFastQueueDisc", LOG_LEVEL_ALL);
 
@@ -272,6 +272,9 @@ int main (int argc, char *argv[])
   uint32_t tcp_adu_size = mtu_bytes - 20 - (ip_header + tcp_header);
   NS_LOG_LOGIC ("TCP ADU size is: " << tcp_adu_size);
 
+  if (sack)
+    NS_LOG_LOGIC("Using SACK (Selective Acknowledgements)");
+
   // Set the simulation start and stop time
   double start_time = 0.1;
   double stop_time = start_time + duration;
@@ -285,7 +288,7 @@ int main (int argc, char *argv[])
                       TypeIdValue (TypeId::LookupByName (recovery)));
   // Select TCP variant
   if (transport_prot.compare ("ns3::TcpWestwoodPlus") == 0)
-    { 
+    {
       // TcpWestwoodPlus is not an actual TypeId name; we need TcpWestwood here
       Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpWestwood::GetTypeId ()));
       // the default protocol type in ns3::TcpWestwood is WESTWOOD
@@ -348,6 +351,7 @@ int main (int argc, char *argv[])
 
   uint32_t size = static_cast<uint32_t>((std::min (access_b, bottle_b).GetBitRate () / 8) *
     ((access_d + bottle_d) * 2).GetSeconds ());
+  NS_LOG_LOGIC("Buffer size is determined to be " << size << " bytes.");
 
   Config::SetDefault ("ns3::PfifoFastQueueDisc::MaxSize",
                       QueueSizeValue (QueueSize (QueueSizeUnit::PACKETS, size / mtu_bytes)));
