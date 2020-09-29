@@ -260,11 +260,11 @@ int main (int argc, char *argv[])
   // Calculate the ADU size
   Header* temp_header = new Ipv4Header ();
   uint32_t ip_header = temp_header->GetSerializedSize ();
-  NS_LOG_LOGIC ("IP Header size is: " << ip_header);
+//   NS_LOG_LOGIC ("IP Header size is: " << ip_header);
   delete temp_header;
   temp_header = new TcpHeader ();
   uint32_t tcp_header = temp_header->GetSerializedSize ();
-  NS_LOG_LOGIC ("TCP Header size is: " << tcp_header);
+//   NS_LOG_LOGIC ("TCP Header size is: " << tcp_header);
   delete temp_header;
   uint32_t tcp_adu_size = mtu_bytes - 20 - (ip_header + tcp_header);
   NS_LOG_LOGIC ("TCP ADU size is: " << tcp_adu_size);
@@ -305,13 +305,13 @@ int main (int argc, char *argv[])
 
   NodeContainer sources;
   sources.Create (num_flows);
-  NS_LOG_LOGIC("The ID of the first source node is: " <<
-               sources.Get (0)-> GetId ());
+//   NS_LOG_LOGIC("The ID of the first source node is: " <<
+//                sources.Get (0)-> GetId ());
 
   NodeContainer sinks;
   sinks.Create (num_flows);
-  NS_LOG_LOGIC("The ID of the first sink node is: " <<
-               sinks.Get (0)-> GetId ());
+//   NS_LOG_LOGIC("The ID of the first sink node is: " <<
+//                sinks.Get (0)-> GetId ());
 
   // Configure the error model
   // Here we use RateErrorModel with packet error rate
@@ -324,11 +324,14 @@ int main (int argc, char *argv[])
 
   DataRate access_b (access_bandwidth);
   DataRate bottle_b (bandwidth);
+    
+  Time serialization = bottle_b.CalculateBytesTxTime (mtu_bytes);
+  Time buffer_drain_time = MicroSeconds(100);
+  uint32_t num_packets = buffer_drain_time.GetMicroSeconds () / serialization.GetMicroSeconds ();
 
   Time access_d (link_delay);
-  double rtt = access_d.GetSeconds () * 6;
-  NS_LOG_LOGIC("Bandwidth is: " << bandwidth << " RTT is: " << rtt << "sec");
-  NS_LOG_LOGIC("Access Bandwidth is " << access_bandwidth);
+  NS_LOG_LOGIC("Bandwidth is: " << bandwidth); 
+//   NS_LOG_LOGIC("Access Bandwidth is " << access_bandwidth);
 
   // Set the simulation start and stop time
   double stop_time = TRACE_START_TIME + duration;
@@ -344,7 +347,7 @@ int main (int argc, char *argv[])
   // BottleneckLink.SetQueue (queue_type, "MaxSize",
   //                          QueueSizeValue (QueueSize (QueueSizeUnit::BYTES,
   //                                                     size-mtu_bytes)));
-  BottleneckLink.SetQueue (queue_type, "MaxSize", StringValue ("62500B"));
+  BottleneckLink.SetQueue (queue_type, "MaxSize", StringValue (std::to_string(num_packets-1)+"p"));
 
   InternetStackHelper stack;
   stack.InstallAll ();
@@ -357,7 +360,11 @@ int main (int argc, char *argv[])
   // AccessLink.SetQueue (queue_type, "MaxSize",
   //                      QueueSizeValue (QueueSize (QueueSizeUnit::BYTES,
   //                                                 size-mtu_bytes)));
-  AccessLink.SetQueue (queue_type, "MaxSize", StringValue ("62500B"));
+  AccessLink.SetQueue (queue_type, "MaxSize", StringValue ("1p"));
+    
+  TrafficControlHelper tchPfifo;
+  tchPfifo.SetRootQueueDisc ("ns3::PfifoFastQueueDisc", 
+                             "MaxSize", StringValue("1p"));
 
   Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable> ();
 
@@ -367,12 +374,33 @@ int main (int argc, char *argv[])
   devices = BottleneckLink.Install (gateways.Get (0), gateways.Get (1));
   address.NewNetwork ();
   interfaces = address.Assign (devices);
+   
+  Ptr<TrafficControlLayer> tc= devices.Get (0)->GetNode ()->GetObject<TrafficControlLayer> ();;
+  Ptr<QueueDisc> qd = tc->GetRootQueueDiscOnDevice(devices.Get (0));
+  if(qd)
+  {
+    qd->SetMaxSize(QueueSize("1p")); //Queue will be accumulated on a DropTail one created above
+  }
+  else
+  {
+    tchPfifo.Install (devices.Get (0));
+  }
+//   NS_LOG_LOGIC("Configured Queue Disc size.");
+    
   for (uint32_t i = 0; i < num_flows; i++)
   {
-    double rnd_delay = rng->GetValue(0,1)/1000.0;
-    Time rnd_link_delay = access_d + Seconds (rnd_delay);
+    double rnd_delay = rng->GetValue(0,100);
+    if(i==0)
+        rnd_delay = 0;
+    Time rnd_link_delay = access_d + MicroSeconds (rnd_delay);
     std::string rnd_link_delay_str = std::to_string(rnd_link_delay.GetMilliSeconds ()) + "ms";
     AccessLink.SetChannelAttribute ("Delay", StringValue (rnd_link_delay_str));
+      
+    if(i==0)
+    {
+      Time rtt = rnd_link_delay*4+access_d*2+buffer_drain_time;
+      NS_LOG_LOGIC("RTT is: " << (rtt).GetMicroSeconds () << "us");
+    }
 
     devices = AccessLink.Install (sources.Get (i), gateways.Get (0));
     address.NewNetwork ();
@@ -384,7 +412,7 @@ int main (int argc, char *argv[])
     sink_interfaces.Add (interfaces.Get (1));
   }
 
-  NS_LOG_INFO ("Initialize Global Routing.");
+//   NS_LOG_INFO ("Initialize Global Routing.");
   Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
   uint16_t port = 50000;
