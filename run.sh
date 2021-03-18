@@ -3,7 +3,7 @@
 
 TIME=60
 BWNET=10
-# TODO: If you want the RTT to be 40ms what should the delay on each
+# TODO: If you want the Base RTT to be 40ms what should the delay on each
 # link be?  Set this value correctly.
 DELAY=__FILL_IN_HERE__
 

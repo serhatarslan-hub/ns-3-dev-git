@@ -47,10 +47,16 @@ NS_LOG_COMPONENT_DEFINE ("BufferBloatExample");
 
 static double TRACE_START_TIME = 0.05;
 
-/* The helper functions below are used to trace particular values throughout
+/* Tracing is one of the most valuable features of a simulation environment.
+ * It means we can get to see evolution of any value / state we are interested
+ * throughout the simulation. Basically, in NS-3, you set some tracing options
+ * for pre-defined TraceSources and provide a function that defines what to do
+ * when the traced value changes.
+ * The helper functions below are used to trace particular values throughout
  * the simulation. Make sure to take a look at how they are used in the main
  * function. You can learn more about tracing at
- * https://www.nsnam.org/docs/tutorial/html/tracing.html
+ * https://www.nsnam.org/docs/tutorial/html/tracing.html If you are going to
+ * work with NS-3 in the future, you will definitely need to read this page.
  */
 
 static void
@@ -101,8 +107,13 @@ TraceRtt (Ptr<OutputStreamWrapper> rttStream)
   //       window size of a TCP socket. Take a look at the documentation for
   //       TCP Sockets and find the name of the TraceSource in order to trace
   //       the round trip time (delay) experienced by the flow.
+  //
   // HINT: TCP Socket is implemented on multiple classes in NS3. The trace
   //       source you are looking for might be in any of them.
+  /* Note how the path is constructed for configuring the TraceSource. NS-3
+   * keeps a hierarchical list of all available modules created for the
+   *simulation
+   */
   Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/__FILL_IN_HERE__",
                                  MakeBoundCallback (&RttTracer, rttStream));
 }
@@ -189,7 +200,9 @@ main (int argc, char *argv[])
   /* Channels are used to connect different nodes in the network. There are
    * different types of channels one can use to simulate different environments
    * such as ethernet or wireless. In our case, we would like to simulate a
-   * cable that directly connects two nodes.
+   * cable that directly connects two nodes. These cables have particular
+   * properties (ie. propagation delay and link rate) and they need to be set
+   * before installing them on nodes.
    */
   NS_LOG_DEBUG("Configuring Channels...");
 
@@ -287,7 +300,7 @@ main (int argc, char *argv[])
 
   /* The sender Application */
   BulkSendHelper ftp ("ns3::TcpSocketFactory", Address ());
-  // TODO: Read documentation for BulkSenderHelper to figure out the name of the
+  // TODO: Read documentation for BulkSendHelper to figure out the name of the
   //       Attribute for setting the destination address for the sender.
   ftp.SetAttribute ("__FILL_IN_HERE__", receiverAddress);
   ftp.SetAttribute ("SendSize", UintegerValue (tcpSegmentSize));
